@@ -333,8 +333,7 @@ function selectDay(dateStr) {
   document.getElementById("log-prompt").classList.add("hidden");
 
   // Update the label above the buttons to show which date is selected
-  document.getElementById("selected-date-label").textContent =
-    "Logging for: " + formatDate(dateStr);
+  document.getElementById("selected-date-label").textContent = formatDate(dateStr);
 
   // Clear any previous feedback message
 
