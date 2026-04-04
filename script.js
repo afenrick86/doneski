@@ -15,14 +15,14 @@ const ALLOWANCE_TIERS = [
 // photo: set to a file path like "photos/ally.jpg" to show a real image.
 // Leave as null to show an initials placeholder instead.
 const KIDS = [
-  { id: 1, name: "Ally",     dob: "2012-03-16", chores: ["Clean Living Room"],          photo: "photos/ally.jpeg" },
-  { id: 2, name: "Olivia",   dob: "2012-12-11", chores: ["Clean Playroom"],             photo: "photos/olivia.jpeg" },
-  { id: 3, name: "Piper",    dob: "2013-06-28", chores: ["Guest and Upstairs Bathroom"],photo: "photos/piper.jpeg" },
-  { id: 4, name: "Marivel",  dob: "2014-11-13", chores: ["Clean Playroom"],             photo: "photos/marivel.jpeg" },
-  { id: 5, name: "Caroline", dob: "2015-08-04", chores: ["Clean Playroom"],             photo: "photos/caroline.jpeg" },
-  { id: 6, name: "Vivi",     dob: "2016-10-19", chores: ["Load/Unload Dishwasher"],     photo: "photos/vivi.jpeg" },
-  { id: 7, name: "Wren",     dob: "2017-10-08", chores: ["Feed dogs"],                  photo: "photos/wren.jpeg" },
-  { id: 8, name: "Emilio",   dob: "2021-11-12", chores: ["Pick up toys"],               photo: "photos/emilio.jpeg" },
+  { id: 1, name: "Ally",     dob: "2012-03-16", chores: ["Clean Living Room"],          photo: "Photos/ally.jpeg" },
+  { id: 2, name: "Olivia",   dob: "2012-12-11", chores: ["Clean Playroom"],             photo: "Photos/olivia.jpeg" },
+  { id: 3, name: "Piper",    dob: "2013-06-28", chores: ["Guest and Upstairs Bathroom"],photo: "Photos/piper.jpeg" },
+  { id: 4, name: "Marivel",  dob: "2014-11-13", chores: ["Clean Playroom"],             photo: "Photos/marivel.jpeg" },
+  { id: 5, name: "Caroline", dob: "2015-08-04", chores: ["Clean Playroom"],             photo: "Photos/caroline.jpeg" },
+  { id: 6, name: "Vivi",     dob: "2016-10-19", chores: ["Load/Unload Dishwasher"],     photo: "Photos/vivi.jpeg" },
+  { id: 7, name: "Wren",     dob: "2017-10-08", chores: ["Feed dogs"],                  photo: "Photos/wren.jpeg" },
+  { id: 8, name: "Emilio",   dob: "2021-11-12", chores: ["Pick up toys"],               photo: "Photos/emilio.jpeg" },
 ];
 
 
