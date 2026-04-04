@@ -296,9 +296,9 @@ function renderMonthLog(kidId) {
     const isToday = day === today;
 
     // Determine the status of this day
-    let status = "unlogged"; // default: gray
-    if (!isFuture && dateStr in entryMap) {
-      status = entryMap[dateStr] ? "complete" : "incomplete";
+    let status = "unlogged"; // default: future days only
+    if (!isFuture) {
+      status = entryMap[dateStr] === true ? "complete" : "incomplete";
     }
 
     const cell = document.createElement("div");
