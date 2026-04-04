@@ -1,0 +1,451 @@
+/* =====================
+   BASE / RESET
+   ===================== */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  background-color: #f4f4f4;
+  color: #333;
+  padding: 20px;
+}
+
+/* Hides any element — toggled by JavaScript to switch between views */
+.hidden {
+  display: none;
+}
+
+
+/* =====================
+   HEADER
+   ===================== */
+
+header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+header h1 {
+  font-size: 2rem;
+  color: #2c7a4b;
+}
+
+header p {
+  font-size: 1rem;
+  color: #666;
+}
+
+
+/* =====================
+   HOME VIEW — KID CARD GRID
+   ===================== */
+
+/* CSS Grid: automatically fills rows with cards that are at least 260px wide */
+#kids-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 20px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.kid-card {
+  background-color: #ffffff;
+  border-radius: 10px;
+  padding: 18px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s;
+  /* flex column lets us push the progress bar and bottom row to a consistent position */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Slightly lift the card when hovered */
+.kid-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.15);
+}
+
+/* Top row: name/age on the left, photo on the right */
+.card-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.card-name-age h2 {
+  font-size: 1.15rem;
+  color: #2c7a4b;
+  margin-bottom: 2px;
+}
+
+.kid-age {
+  font-size: 0.82rem;
+  color: #888;
+}
+
+/* Photo — square with rounded corners, fixed size */
+.kid-photo {
+  width: 54px;
+  height: 54px;
+  border-radius: 8px;
+  object-fit: cover; /* for real <img> tags: crops to fill the box */
+  flex-shrink: 0;
+}
+
+/* Placeholder shown when no photo is set — green circle with initials */
+.kid-photo-placeholder {
+  background-color: #2c7a4b;
+  color: white;
+  font-size: 1.1rem;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+}
+
+/* Chore text: truncated to one line with "..." if too long.
+   Hovering shows the full text via the title attribute (set in JS). */
+.kid-card .kid-chore {
+  font-size: 0.88rem;
+  color: #555;
+  margin-bottom: 6px;
+  white-space: nowrap;      /* prevents text from wrapping to a second line */
+  overflow: hidden;          /* hides any text that goes past the edge */
+  text-overflow: ellipsis;   /* adds "..." at the cutoff point */
+}
+
+.kid-card .kid-allowance {
+  font-size: 0.82rem;
+  color: #888;
+  margin-bottom: 10px;
+}
+
+/* Push the progress bar and bottom row to the bottom of every card */
+.progress-bar-wrap {
+  margin-top: auto;
+}
+
+/* Bottom row: percentage on the left, on-track earnings on the right */
+.card-bottom-row {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+
+.kid-on-track {
+  font-size: 0.82rem;
+  font-weight: bold;
+  color: #2c7a4b;
+}
+
+
+/* =====================
+   PROGRESS BAR
+   ===================== */
+
+/* The grey outer track */
+.progress-bar-wrap {
+  background-color: #e0e0e0;
+  border-radius: 999px;
+  height: 10px;
+  overflow: hidden;
+}
+
+/* The green filled portion — width is set dynamically via JavaScript */
+.progress-bar-fill {
+  background-color: #2c7a4b;
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+
+/* =====================
+   KID DETAIL VIEW
+   ===================== */
+
+#kid-view {
+  max-width: 620px;
+  margin: 0 auto;
+}
+
+#back-btn {
+  background: none;
+  border: none;
+  color: #2c7a4b;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-bottom: 16px;
+  padding: 0;
+}
+
+#back-btn:hover {
+  text-decoration: underline;
+}
+
+#kid-header {
+  margin-bottom: 20px;
+}
+
+/* Row that holds the text on the left and photo on the right */
+.detail-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.detail-header-text {
+  flex: 1; /* takes all available width, leaving room for the photo */
+}
+
+#kid-header h2 {
+  font-size: 1.6rem;
+  color: #2c7a4b;
+}
+
+#kid-header p {
+  color: #666;
+  margin-top: 4px;
+}
+
+#kid-header .kid-chore-label {
+  margin-top: 6px;
+  color: #444;
+}
+
+/* Photo on the detail page — height matches roughly three lines of text */
+.detail-photo {
+  width: 80px;
+  height: 80px;
+  border-radius: 10px;
+  object-fit: cover;
+  object-position: top;
+  flex-shrink: 0;
+  margin-left: 16px;
+}
+
+/* Initials placeholder if no photo is set */
+.detail-photo-placeholder {
+  background-color: #2c7a4b;
+  color: white;
+  font-size: 1.6rem;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+}
+
+/* Shared card style for each section in the kid view */
+section {
+  background-color: #ffffff;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+section h2 {
+  font-size: 1.1rem;
+  color: #2c7a4b;
+  border-bottom: 2px solid #e0e0e0;
+  padding-bottom: 8px;
+  margin-bottom: 16px;
+}
+
+
+/* =====================
+   LOG CONTROLS
+   ===================== */
+
+#log-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+}
+
+#log-controls label {
+  display: block;
+  font-weight: bold;
+  font-size: 0.9rem;
+  margin-bottom: 4px;
+}
+
+#log-controls input[type="date"] {
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+#log-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+#mark-complete {
+  padding: 9px 16px;
+  background-color: #2c7a4b;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+#mark-complete:hover {
+  background-color: #235f3a;
+}
+
+#mark-incomplete {
+  padding: 9px 16px;
+  background-color: #c0392b;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+#mark-incomplete:hover {
+  background-color: #a93226;
+}
+
+/* Feedback message shown after logging */
+#log-feedback {
+  margin-top: 12px;
+  font-size: 0.9rem;
+  font-weight: bold;
+}
+
+.feedback-complete {
+  color: #2c7a4b;
+}
+
+.feedback-incomplete {
+  color: #c0392b;
+}
+
+
+/* =====================
+   MONTHLY CALENDAR
+   ===================== */
+
+/* 7-column grid — one column per day of the week */
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+/* Day-of-week header labels (Sun, Mon, ...) */
+.cal-header {
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: #999;
+  padding-bottom: 4px;
+}
+
+/* Every day cell is a circle */
+.cal-day {
+  aspect-ratio: 1; /* keeps the cell square so border-radius makes a circle */
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: white;
+  cursor: default;
+}
+
+/* Empty offset cells before the 1st of the month */
+.cal-blank {
+  background: none;
+}
+
+/* Gray: day has passed but no entry was logged */
+.cal-unlogged {
+  background-color: #d0d0d0;
+  color: #555;
+}
+
+/* Green: chore was completed */
+.cal-complete {
+  background-color: #2c7a4b;
+}
+
+/* Red: chore was not completed */
+.cal-incomplete {
+  background-color: #c0392b;
+}
+
+/* Today gets a dark ring so it stands out */
+.cal-today {
+  outline: 3px solid #333;
+  outline-offset: 2px;
+}
+
+/* Selected day gets a blue ring on top of its existing color */
+.cal-selected {
+  outline: 3px solid #1a6bb5;
+  outline-offset: 2px;
+}
+
+/* Hover effect on clickable days */
+.cal-day[style*="pointer"]:hover {
+  opacity: 0.8;
+}
+
+/* Label showing which date is selected */
+#selected-date-label {
+  font-weight: bold;
+  font-size: 0.95rem;
+  margin-bottom: 10px;
+  color: #333;
+}
+
+
+/* =====================
+   PROGRESS SECTION
+   ===================== */
+
+.progress-block {
+  margin-bottom: 20px;
+}
+
+.progress-block:last-child {
+  margin-bottom: 0;
+}
+
+.progress-block h3 {
+  font-size: 1rem;
+  margin-bottom: 10px;
+  color: #444;
+}
+
+.progress-block p {
+  margin-bottom: 8px;
+  font-size: 0.95rem;
+}
+
+.progress-block strong {
+  color: #2c7a4b;
+}
+
+/* Divider between the two progress blocks */
+.progress-block + .progress-block {
+  border-top: 1px solid #e0e0e0;
+  padding-top: 16px;
+}
