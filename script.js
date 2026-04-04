@@ -209,6 +209,7 @@ function openKid(kidId) {
 function goHome() {
   activeKidId = null;
   document.getElementById("kid-view").classList.add("hidden");
+  document.getElementById("dashboard-view").classList.add("hidden");
   document.getElementById("home-view").classList.remove("hidden");
   renderHome(); // re-render so progress bars on cards are up to date
 }
@@ -394,6 +395,117 @@ function getPreviousMonthAllowance(kidId) {
 
 
 // =====================
+// PARENT DASHBOARD
+// =====================
+
+// Calculates total earnings across all logged months for a kid
+function getLifetimeEarnings(kidId) {
+  const kid = KIDS.find(function (k) { return k.id === kidId; });
+
+  // Collect all unique "YYYY-MM" months that exist in the log for this kid
+  const months = [];
+  log.forEach(function (e) {
+    if (e.kidId === kidId && months.indexOf(e.date.slice(0, 7)) === -1) {
+      months.push(e.date.slice(0, 7));
+    }
+  });
+
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  let total = 0;
+
+  months.forEach(function (monthStr) {
+    const parts = monthStr.split("-");
+    const year = parseInt(parts[0]);
+    const month = parseInt(parts[1]) - 1; // 0-indexed for getDaysInMonth
+    const totalDays = getDaysInMonth(year, month);
+    // For the current month use days elapsed; for past months use all days
+    const daysToCount = monthStr === currentMonth ? new Date().getDate() : totalDays;
+    const completed = log.filter(function (e) {
+      return e.kidId === kidId && e.date.startsWith(monthStr) && e.completed;
+    }).length;
+    const percent = daysToCount > 0 ? completed / daysToCount : 0;
+    total += percent * getMaxAllowance(kid);
+  });
+
+  return total.toFixed(2);
+}
+
+function renderDashboard() {
+  // Aggregate group stats across all kids
+  let totalProjected = 0;
+  let totalLastMonth = 0;
+  let totalCompletionPercent = 0;
+
+  KIDS.forEach(function (kid) {
+    const { percent } = getThisMonthProgress(kid.id);
+    const maxAllowance = getMaxAllowance(kid);
+    totalProjected += (percent / 100) * maxAllowance;
+    totalCompletionPercent += percent;
+    const prev = getPreviousMonthAllowance(kid.id);
+    totalLastMonth += parseFloat(prev.earned);
+  });
+
+  const groupRate = Math.round(totalCompletionPercent / KIDS.length);
+
+  document.getElementById("dashboard-widgets").innerHTML = `
+    <div class="stat-card">
+      <div class="stat-value">${groupRate}%</div>
+      <div class="stat-label">Group Completion This Month</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">$${totalProjected.toFixed(2)}</div>
+      <div class="stat-label">Projected Payout This Month</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">$${totalLastMonth.toFixed(2)}</div>
+      <div class="stat-label">Total Paid Last Month</div>
+    </div>
+  `;
+
+  // Per-kid earnings table
+  let rows = "";
+  KIDS.forEach(function (kid) {
+    const { percent } = getThisMonthProgress(kid.id);
+    const maxAllowance = getMaxAllowance(kid);
+    const projected = ((percent / 100) * maxAllowance).toFixed(2);
+    const prev = getPreviousMonthAllowance(kid.id);
+    const lifetime = getLifetimeEarnings(kid.id);
+
+    rows += `
+      <tr>
+        <td><strong>${kid.name}</strong></td>
+        <td>${percent}%</td>
+        <td>$${projected}</td>
+        <td>$${prev.earned}</td>
+        <td>$${lifetime}</td>
+      </tr>
+    `;
+  });
+
+  document.getElementById("dashboard-table").innerHTML = `
+    <table class="dashboard-table">
+      <thead>
+        <tr>
+          <th>Kid</th>
+          <th>This Month</th>
+          <th>Projected</th>
+          <th>Last Month</th>
+          <th>Lifetime</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+function openDashboard() {
+  document.getElementById("home-view").classList.add("hidden");
+  document.getElementById("dashboard-view").classList.remove("hidden");
+  renderDashboard();
+}
+
+
+// =====================
 // RENDER PROGRESS SECTION
 // =====================
 
@@ -411,7 +523,6 @@ function renderKidProgress(kidId) {
       <div class="progress-bar-wrap">
         <div class="progress-bar-fill" style="width: ${percent}%"></div>
       </div>
-      <p>Completion rate: <strong>${percent}%</strong></p>
       <p>Earnings: <strong>$${projectedEarned}</strong> of $${maxAllowance.toFixed(2)}</p>
     </div>
     <div class="progress-block">
@@ -428,6 +539,8 @@ function renderKidProgress(kidId) {
 // =====================
 
 document.getElementById("back-btn").addEventListener("click", goHome);
+document.getElementById("dashboard-back-btn").addEventListener("click", goHome);
+document.getElementById("open-dashboard-btn").addEventListener("click", openDashboard);
 document.querySelector("header h1").addEventListener("click", goHome);
 
 document.getElementById("mark-complete").addEventListener("click", function () {

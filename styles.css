@@ -405,3 +405,104 @@ section h2 {
   border-top: 1px solid #E5E7EB;
   padding-top: 16px;
 }
+
+
+/* =====================
+   PARENT DASHBOARD
+   ===================== */
+
+#dashboard-btn-wrap {
+  text-align: center;
+  margin-top: 32px;
+}
+
+#open-dashboard-btn {
+  padding: 10px 24px;
+  background-color: #1C1C1E;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+#open-dashboard-btn:hover {
+  background-color: #3a3a3c;
+}
+
+#dashboard-view {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+#dashboard-back-btn {
+  background: none;
+  border: none;
+  color: #2c62ba;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-bottom: 16px;
+  padding: 0;
+  font-family: inherit;
+}
+
+#dashboard-back-btn:hover {
+  text-decoration: underline;
+}
+
+.dashboard-widgets {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.stat-card {
+  background-color: #F7F7F5;
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 1.7rem;
+  font-weight: bold;
+  color: #2c62ba;
+}
+
+.stat-label {
+  font-size: 0.78rem;
+  color: #6B7280;
+  margin-top: 4px;
+}
+
+.dashboard-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.dashboard-table th {
+  text-align: left;
+  font-size: 0.75rem;
+  color: #9CA3AF;
+  padding: 6px 10px;
+  border-bottom: 1px solid #E5E7EB;
+  font-weight: normal;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.dashboard-table td {
+  padding: 10px 10px;
+  font-size: 0.9rem;
+  border-bottom: 1px solid #E5E7EB;
+  color: #1C1C1E;
+}
+
+.dashboard-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.dashboard-table td strong {
+  color: #1C1C1E;
+}
