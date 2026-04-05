@@ -633,6 +633,7 @@ section h2 {
 }
 
 .btn-remove {
+  min-width: 72px;
   padding: 6px 12px;
   background-color: #FEE2E2;
   color: #DC2626;
@@ -645,6 +646,51 @@ section h2 {
 
 .btn-remove:hover {
   background-color: #FECACA;
+}
+
+.btn-archive {
+  min-width: 72px;
+  padding: 6px 12px;
+  background-color: #FEF3C7;
+  color: #B45309;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.82rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.btn-archive:hover {
+  background-color: #FDE68A;
+}
+
+.btn-unarchive {
+  padding: 6px 12px;
+  background-color: #F7F7F5;
+  color: #6B7280;
+  border: 1px solid #E5E7EB;
+  border-radius: 4px;
+  font-size: 0.82rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.btn-unarchive:hover {
+  background-color: #E5E7EB;
+}
+
+.archived-section-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #9CA3AF;
+  margin: 16px 0 4px;
+}
+
+.settings-kid-row.archived .settings-kid-info strong,
+.settings-kid-row.archived .settings-kid-info span {
+  color: #9CA3AF;
 }
 
 #add-kid-btn {
@@ -692,6 +738,50 @@ section h2 {
   outline: none;
   border-color: #2c62ba;
   background-color: white;
+}
+
+.kid-inline-form {
+  background-color: #F0F4FC;
+  border-left: 3px solid #2c62ba;
+  border-bottom: 1px solid #E5E7EB;
+  padding: 14px 16px 10px;
+  margin-bottom: 2px;
+}
+
+.inline-form-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.btn-inline-save {
+  padding: 8px 18px;
+  background-color: #2c62ba;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.btn-inline-save:hover {
+  background-color: #1e4d9a;
+}
+
+.btn-inline-cancel {
+  padding: 8px 18px;
+  background-color: #F7F7F5;
+  color: #1C1C1E;
+  border: 1px solid #E5E7EB;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.btn-inline-cancel:hover {
+  background-color: #E5E7EB;
 }
 
 #kid-form-buttons {
@@ -769,11 +859,6 @@ section h2 {
   background-color: white;
 }
 
-.pay-scale-row input[disabled] {
-  background-color: #F3F4F6;
-  color: #9CA3AF;
-  cursor: not-allowed;
-}
 
 .pay-scale-header {
   display: grid;
@@ -790,7 +875,25 @@ section h2 {
   letter-spacing: 0.05em;
 }
 
+.btn-add-tier {
+  margin-top: 10px;
+  padding: 9px 16px;
+  background-color: #2c62ba;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.btn-add-tier:hover {
+  background-color: #1e4d9a;
+}
+
 #pay-scale-buttons {
+  display: none;
+  gap: 10px;
   margin-top: 14px;
 }
 
@@ -807,6 +910,21 @@ section h2 {
 
 #save-pay-scale-btn:hover {
   background-color: #1e4d9a;
+}
+
+#cancel-pay-scale-btn {
+  padding: 9px 20px;
+  background-color: #F7F7F5;
+  color: #1C1C1E;
+  border: 1px solid #E5E7EB;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+#cancel-pay-scale-btn:hover {
+  background-color: #E5E7EB;
 }
 
 

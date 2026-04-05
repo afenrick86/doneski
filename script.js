@@ -31,6 +31,7 @@ const DEFAULT_TIERS = [
 ];
 
 let ALLOWANCE_TIERS = DEFAULT_TIERS.slice();
+let savedPayScaleTiers = DEFAULT_TIERS.slice();
 
 // Default kids written to Firestore on first run if no kids exist yet.
 const DEFAULT_KIDS = [
@@ -121,7 +122,7 @@ function renderHome() {
   const grid = document.getElementById("kids-grid");
   grid.innerHTML = ""; // clear before re-rendering
 
-  const sortedKids = KIDS.slice().sort(function (a, b) { return a.dob < b.dob ? -1 : 1; });
+  const sortedKids = KIDS.filter(function (k) { return !k.archived; }).sort(function (a, b) { return a.dob < b.dob ? -1 : 1; });
   sortedKids.forEach(function (kid) {
     const age = calculateAge(kid.dob);
     const maxAllowance = getMaxAllowance(kid);
@@ -179,6 +180,7 @@ function renderHome() {
 
 // Opens the detail page for a specific kid
 async function openKid(kidId) {
+  window.scrollTo(0, 0);
   activeKidId = kidId;
   const kid = KIDS.find(function (k) { return k.id === kidId; });
   const age = calculateAge(kid.dob);
@@ -229,6 +231,7 @@ async function openKid(kidId) {
 
 // Returns to the home view
 function goHome() {
+  window.scrollTo(0, 0);
   activeKidId = null;
   document.getElementById("kid-view").classList.add("hidden");
   document.getElementById("dashboard-view").classList.add("hidden");
@@ -461,7 +464,9 @@ function renderDashboard() {
   let totalLastMonth = 0;
   let totalCompletionPercent = 0;
 
-  KIDS.forEach(function (kid) {
+  const activeKids = KIDS.filter(function (k) { return !k.archived; });
+
+  activeKids.forEach(function (kid) {
     const { percent } = getThisMonthProgress(kid.id);
     const maxAllowance = getMaxAllowance(kid);
     totalProjected += (percent / 100) * maxAllowance;
@@ -470,7 +475,7 @@ function renderDashboard() {
     totalLastMonth += parseFloat(prev.earned);
   });
 
-  const groupRate = Math.round(totalCompletionPercent / KIDS.length);
+  const groupRate = activeKids.length > 0 ? Math.round(totalCompletionPercent / activeKids.length) : 0;
 
   document.getElementById("dashboard-widgets").innerHTML = `
     <div class="stat-card">
@@ -489,7 +494,7 @@ function renderDashboard() {
 
   // Per-kid earnings table
   let rows = "";
-  const sortedKids = KIDS.slice().sort(function (a, b) { return a.dob < b.dob ? -1 : 1; });
+  const sortedKids = activeKids.slice().sort(function (a, b) { return a.dob < b.dob ? -1 : 1; });
   sortedKids.forEach(function (kid) {
     const { percent } = getThisMonthProgress(kid.id);
     const maxAllowance = getMaxAllowance(kid);
@@ -525,6 +530,7 @@ function renderDashboard() {
 }
 
 function openDashboard() {
+  window.scrollTo(0, 0);
   document.getElementById("home-view").classList.add("hidden");
   document.getElementById("loading-view").classList.add("hidden");
   document.getElementById("dashboard-view").classList.remove("hidden");
@@ -569,6 +575,7 @@ function renderKidProgress(kidId) {
 let editingKidId = null;
 
 function openSettings() {
+  window.scrollTo(0, 0);
   document.getElementById("dashboard-view").classList.add("hidden");
   document.getElementById("settings-view").classList.remove("hidden");
   renderSettingsList();
@@ -588,9 +595,16 @@ function renderSettingsList() {
     list.innerHTML = "<p>No kids added yet.</p>";
     return;
   }
-  const sortedKids = KIDS.slice().sort(function (a, b) { return a.dob < b.dob ? -1 : 1; });
-  list.innerHTML = sortedKids.map(function (kid) {
+
+  const activeKids = KIDS.filter(function (k) { return !k.archived; }).sort(function (a, b) { return a.dob < b.dob ? -1 : 1; });
+  const archivedKids = KIDS.filter(function (k) { return k.archived; }).sort(function (a, b) { return a.dob < b.dob ? -1 : 1; });
+
+  let html = activeKids.map(function (kid) {
     const age = calculateAge(kid.dob);
+    const hasHistory = log.some(function (e) { return e.kidId === kid.id; });
+    const actionBtn = hasHistory
+      ? `<button class="btn-archive" data-id="${kid.id}">Archive</button>`
+      : `<button class="btn-remove" data-id="${kid.id}">Delete</button>`;
     return `
       <div class="settings-kid-row">
         <div class="settings-kid-info">
@@ -599,34 +613,53 @@ function renderSettingsList() {
         </div>
         <div class="settings-kid-actions">
           <button class="btn-edit" data-id="${kid.id}">Edit</button>
-          <button class="btn-remove" data-id="${kid.id}">Remove</button>
+          ${actionBtn}
         </div>
       </div>
     `;
   }).join("");
 
-  // Wire up edit and remove buttons
+  if (archivedKids.length > 0) {
+    html += `<p class="archived-section-label">Archived</p>`;
+    html += archivedKids.map(function (kid) {
+      const age = calculateAge(kid.dob);
+      return `
+        <div class="settings-kid-row archived">
+          <div class="settings-kid-info">
+            <strong>${kid.name}</strong>
+            <span>Age ${age} &bull; ${kid.chores.join(", ")}</span>
+          </div>
+          <div class="settings-kid-actions">
+            <button class="btn-unarchive" data-id="${kid.id}">Unarchive</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  list.innerHTML = html;
+
   list.querySelectorAll(".btn-edit").forEach(function (btn) {
     btn.addEventListener("click", function () { openKidForm(btn.dataset.id); });
   });
   list.querySelectorAll(".btn-remove").forEach(function (btn) {
     btn.addEventListener("click", function () { removeKid(btn.dataset.id); });
   });
+  list.querySelectorAll(".btn-archive").forEach(function (btn) {
+    btn.addEventListener("click", function () { archiveKid(btn.dataset.id); });
+  });
+  list.querySelectorAll(".btn-unarchive").forEach(function (btn) {
+    btn.addEventListener("click", function () { unarchiveKid(btn.dataset.id); });
+  });
 }
 
 // Opens the add/edit form, pre-filling values if editing an existing kid
 function openKidForm(kidId) {
-  editingKidId = kidId || null;
-  const formSection = document.getElementById("kid-form-section");
-  formSection.classList.remove("hidden");
-
   if (kidId) {
-    const kid = KIDS.find(function (k) { return k.id === kidId; });
-    document.getElementById("kid-form-title").textContent = "Edit Kid";
-    document.getElementById("form-name").value = kid.name;
-    document.getElementById("form-dob").value = kid.dob;
-    document.getElementById("form-chore").value = kid.chores.join(", ");
+    openInlineEditForm(kidId);
   } else {
+    editingKidId = null;
+    document.getElementById("kid-form-section").classList.remove("hidden");
     document.getElementById("kid-form-title").textContent = "Add Kid";
     document.getElementById("form-name").value = "";
     document.getElementById("form-dob").value = "";
@@ -634,16 +667,92 @@ function openKidForm(kidId) {
   }
 }
 
+function openInlineEditForm(kidId) {
+  // Close any already-open inline form
+  const existing = document.querySelector(".kid-inline-form");
+  if (existing) existing.remove();
+
+  const kid = KIDS.find(function (k) { return k.id === kidId; });
+  const editBtn = document.querySelector(`.btn-edit[data-id="${kidId}"]`);
+  const row = editBtn.closest(".settings-kid-row");
+
+  const formEl = document.createElement("div");
+  formEl.className = "kid-inline-form";
+  formEl.innerHTML = `
+    <div class="form-field">
+      <label>Name</label>
+      <input type="text" id="inline-form-name" value="${kid.name}" />
+    </div>
+    <div class="form-field">
+      <label>Date of Birth</label>
+      <input type="date" id="inline-form-dob" value="${kid.dob}" />
+    </div>
+    <div class="form-field">
+      <label>Chore</label>
+      <input type="text" id="inline-form-chore" value="${kid.chores.join(", ")}" />
+    </div>
+    <div class="inline-form-buttons">
+      <button class="btn-inline-save">Save</button>
+      <button class="btn-inline-cancel">Cancel</button>
+    </div>
+  `;
+
+  row.insertAdjacentElement("afterend", formEl);
+  document.getElementById("inline-form-name").focus();
+
+  formEl.querySelector(".btn-inline-save").addEventListener("click", function () { saveInlineEdit(kidId); });
+  formEl.querySelector(".btn-inline-cancel").addEventListener("click", cancelInlineEdit);
+}
+
+function cancelInlineEdit() {
+  const existing = document.querySelector(".kid-inline-form");
+  if (existing) existing.remove();
+}
+
+async function saveInlineEdit(kidId) {
+  const name = document.getElementById("inline-form-name").value.trim();
+  const dob = document.getElementById("inline-form-dob").value;
+  const chore = document.getElementById("inline-form-chore").value.trim();
+
+  if (!name || !dob || !chore) {
+    alert("Please fill in all fields.");
+    return;
+  }
+
+  const existingKid = KIDS.find(function (k) { return k.id === kidId; });
+  const kidData = Object.assign({}, existingKid, { name, dob, chores: [chore] });
+
+  await setDoc(doc(db, "kids", kidId), kidData);
+
+  const idx = KIDS.findIndex(function (k) { return k.id === kidId; });
+  KIDS[idx] = kidData;
+
+  renderSettingsList();
+}
+
 function closeKidForm() {
   editingKidId = null;
   document.getElementById("kid-form-section").classList.add("hidden");
 }
 
-// Renders the pay scale editor rows — one row per tier
-function renderPayScale() {
-  const container = document.getElementById("pay-scale-list");
+// Deep-clones a tiers array, preserving Infinity values
+function cloneTiers(tiers) {
+  return tiers.map(function (t) { return { maxAge: t.maxAge, amount: t.amount }; });
+}
 
-  // Column headers
+function sortTiers(tiers) {
+  return tiers.slice().sort(function (a, b) {
+    if (a.maxAge === Infinity) return 1;
+    if (b.maxAge === Infinity) return -1;
+    return a.maxAge - b.maxAge;
+  });
+}
+
+// Renders the pay scale editor rows — one row per tier
+function renderPayScale(isDirty) {
+  ALLOWANCE_TIERS = sortTiers(ALLOWANCE_TIERS);
+
+  const container = document.getElementById("pay-scale-list");
   container.innerHTML = `
     <div class="pay-scale-header">
       <span>Max Age</span>
@@ -655,63 +764,67 @@ function renderPayScale() {
   ALLOWANCE_TIERS.forEach(function (tier, index) {
     const row = document.createElement("div");
     row.className = "pay-scale-row";
-    const isLast = index === ALLOWANCE_TIERS.length - 1;
+    const isInfinity = tier.maxAge === Infinity;
     row.innerHTML = `
       <input type="number" class="tier-age" data-index="${index}"
-        value="${isLast ? "" : tier.maxAge}"
-        ${isLast ? 'disabled placeholder="Any age"' : 'min="1" max="99"'} />
+        value="${isInfinity ? "" : tier.maxAge}"
+        placeholder="Any age" min="1" max="99" />
       <input type="number" class="tier-amount" data-index="${index}"
         value="${tier.amount}" min="0" step="1" />
-      ${!isLast ? `<button class="btn-remove tier-remove" data-index="${index}">Remove</button>` : "<span></span>"}
+      <button class="btn-remove tier-remove" data-index="${index}">Remove</button>
     `;
     container.appendChild(row);
   });
 
-  // Add tier button
   const addBtn = document.createElement("button");
-  addBtn.className = "btn-edit";
-  addBtn.style.marginTop = "8px";
+  addBtn.className = "btn-add-tier";
   addBtn.textContent = "+ Add Tier";
   addBtn.addEventListener("click", addPayScaleTier);
   container.appendChild(addBtn);
 
-  // Wire remove buttons
   container.querySelectorAll(".tier-remove").forEach(function (btn) {
     btn.addEventListener("click", function () {
+      if (!confirm("Remove this tier from the pay scale?")) return;
       const i = parseInt(btn.dataset.index);
       ALLOWANCE_TIERS.splice(i, 1);
-      renderPayScale();
+      renderPayScale(true);
     });
   });
+
+  container.querySelectorAll(".tier-age, .tier-amount").forEach(function (input) {
+    input.addEventListener("input", function () {
+      document.getElementById("pay-scale-buttons").style.display = "flex";
+    });
+  });
+
+  document.getElementById("pay-scale-buttons").style.display = isDirty ? "flex" : "none";
 }
 
-// Inserts a new tier before the final "any age" tier
 function addPayScaleTier() {
-  ALLOWANCE_TIERS.splice(ALLOWANCE_TIERS.length - 1, 0, { maxAge: 0, amount: 0 });
-  renderPayScale();
+  ALLOWANCE_TIERS.push({ maxAge: Infinity, amount: 0 });
+  renderPayScale(true);
 }
 
 async function savePayScale() {
-  // Read current values from the inputs
   const ageInputs = document.querySelectorAll(".tier-age");
   const amountInputs = document.querySelectorAll(".tier-amount");
 
   const tiers = [];
-  for (let i = 0; i < ALLOWANCE_TIERS.length; i++) {
-    const isLast = i === ALLOWANCE_TIERS.length - 1;
-    const maxAge = isLast ? Infinity : parseInt(ageInputs[i].value);
+  for (let i = 0; i < ageInputs.length; i++) {
+    const maxAge = ageInputs[i].value === "" ? Infinity : parseInt(ageInputs[i].value);
     const amount = parseFloat(amountInputs[i].value);
-    if ((!isLast && isNaN(maxAge)) || isNaN(amount)) {
-      alert("Please fill in all age and amount fields.");
+    if (isNaN(amount)) {
+      alert("Please fill in all amount fields.");
       return;
     }
     tiers.push({ maxAge, amount });
   }
 
-  // Save to Firestore as a single document
-  await setDoc(doc(db, "settings", "pay-scale"), { tiers });
-  ALLOWANCE_TIERS = tiers;
-  alert("Pay scale saved.");
+  const sortedTiers = sortTiers(tiers);
+  await setDoc(doc(db, "settings", "pay-scale"), { tiers: sortedTiers });
+  ALLOWANCE_TIERS = sortedTiers;
+  savedPayScaleTiers = cloneTiers(sortedTiers);
+  renderPayScale(false);
 }
 
 async function saveKid() {
@@ -743,9 +856,29 @@ async function saveKid() {
 }
 
 async function removeKid(kidId) {
-  if (!confirm("Remove this kid? Their chore history will remain in the log.")) return;
+  const hasHistory = log.some(function (e) { return e.kidId === kidId; });
+  if (hasHistory) {
+    alert("This kid has logged history and cannot be deleted. Use Archive instead.");
+    return;
+  }
+  if (!confirm("Permanently delete this kid? This cannot be undone.")) return;
   await deleteDoc(doc(db, "kids", kidId));
   KIDS = KIDS.filter(function (k) { return k.id !== kidId; });
+  renderSettingsList();
+}
+
+async function archiveKid(kidId) {
+  if (!confirm("Archive this kid? They will be hidden from the app but their history will be preserved.")) return;
+  const kid = KIDS.find(function (k) { return k.id === kidId; });
+  kid.archived = true;
+  await setDoc(doc(db, "kids", kidId), kid);
+  renderSettingsList();
+}
+
+async function unarchiveKid(kidId) {
+  const kid = KIDS.find(function (k) { return k.id === kidId; });
+  kid.archived = false;
+  await setDoc(doc(db, "kids", kidId), kid);
   renderSettingsList();
 }
 
@@ -762,6 +895,11 @@ document.getElementById("settings-back-btn").addEventListener("click", closeSett
 document.getElementById("add-kid-btn").addEventListener("click", function () { openKidForm(null); });
 document.getElementById("save-kid-btn").addEventListener("click", saveKid);
 document.getElementById("save-pay-scale-btn").addEventListener("click", savePayScale);
+document.getElementById("cancel-pay-scale-btn").addEventListener("click", function () {
+  if (!confirm("You have unsaved changes. Are you sure you want to cancel?")) return;
+  ALLOWANCE_TIERS = cloneTiers(savedPayScaleTiers);
+  renderPayScale(false);
+});
 document.getElementById("cancel-kid-btn").addEventListener("click", closeKidForm);
 document.querySelector("header h1").addEventListener("click", goHome);
 
@@ -806,6 +944,7 @@ async function init() {
     } else {
       await setDoc(doc(db, "settings", "pay-scale"), { tiers: DEFAULT_TIERS });
     }
+    savedPayScaleTiers = cloneTiers(ALLOWANCE_TIERS);
 
     // Load chore log
     const logSnapshot = await getDocs(collection(db, "chore-log"));
