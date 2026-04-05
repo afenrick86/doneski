@@ -1,4 +1,24 @@
 // =====================
+// FIREBASE
+// =====================
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, getDocs, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCNwan6r8B5fqxLnX5JXR1Z_Yaq158QmH4",
+  authDomain: "chore-tracker-2f79d.firebaseapp.com",
+  projectId: "chore-tracker-2f79d",
+  storageBucket: "chore-tracker-2f79d.firebasestorage.app",
+  messagingSenderId: "761245984745",
+  appId: "1:761245984745:web:5497ac442b5ee69ca9cd78"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+
+// =====================
 // CONFIGURATION — EDIT THIS SECTION
 // =====================
 // Update each child's name, date of birth (YYYY-MM-DD), and assigned chores.
@@ -32,11 +52,8 @@ const KIDS = [
 
 // Stores every logged day. Each entry is an object:
 // { kidId: 1, date: "2026-04-03", completed: true }
-//
-// localStorage.getItem returns a JSON string if data exists, or null if not.
-// JSON.parse converts that string back into a JavaScript array.
-// The "|| []" means "if nothing is stored yet, start with an empty array."
-let log = JSON.parse(localStorage.getItem("chore-log")) || [];
+// Loaded from Firestore on startup, kept in memory while the app is running.
+let log = [];
 
 // Tracks which kid's detail page is open
 let activeKidId = null;
@@ -158,14 +175,15 @@ function renderHome() {
 // =====================
 
 // Opens the detail page for a specific kid
-function openKid(kidId) {
+async function openKid(kidId) {
   activeKidId = kidId;
   const kid = KIDS.find(function (k) { return k.id === kidId; });
   const age = calculateAge(kid.dob);
   const maxAllowance = getMaxAllowance(kid);
 
-  // Hide the home view, show the kid view
+  // Hide all other views, show the kid view
   document.getElementById("home-view").classList.add("hidden");
+  document.getElementById("loading-view").classList.add("hidden");
   document.getElementById("kid-view").classList.remove("hidden");
 
   // Build photo element — same logic as the home card
@@ -193,7 +211,8 @@ function openKid(kidId) {
   });
   if (!hasEntryToday) {
     log.push({ kidId: kidId, date: today, completed: false });
-    localStorage.setItem("chore-log", JSON.stringify(log));
+    const entryKey = `${kidId}_${today}`;
+    await setDoc(doc(db, "chore-log", entryKey), { kidId: kidId, date: today, completed: false });
   }
 
   // Reset selected date and hide the log controls until a day is picked
@@ -210,8 +229,9 @@ function goHome() {
   activeKidId = null;
   document.getElementById("kid-view").classList.add("hidden");
   document.getElementById("dashboard-view").classList.add("hidden");
+  document.getElementById("loading-view").classList.add("hidden");
   document.getElementById("home-view").classList.remove("hidden");
-  renderHome(); // re-render so progress bars on cards are up to date
+  renderHome();
 }
 
 
@@ -219,7 +239,7 @@ function goHome() {
 // LOG AN ENTRY
 // =====================
 
-function logEntry(kidId, date, completed) {
+async function logEntry(kidId, date, completed) {
   // Look for an existing log entry for this kid on this date
   const existing = log.find(function (e) {
     return e.kidId === kidId && e.date === date;
@@ -233,9 +253,10 @@ function logEntry(kidId, date, completed) {
     log.push({ kidId: kidId, date: date, completed: completed });
   }
 
-  // Save the updated log to localStorage so it survives page refreshes.
-  // JSON.stringify converts the JavaScript array into a string for storage.
-  localStorage.setItem("chore-log", JSON.stringify(log));
+  // Save the updated entry to Firestore.
+  // Each document is keyed by "kidId_date" so it's easy to find and overwrite.
+  const entryKey = `${kidId}_${date}`;
+  await setDoc(doc(db, "chore-log", entryKey), { kidId, date, completed });
 
   // Refresh the log list and progress stats
   renderMonthLog(kidId);
@@ -500,6 +521,7 @@ function renderDashboard() {
 
 function openDashboard() {
   document.getElementById("home-view").classList.add("hidden");
+  document.getElementById("loading-view").classList.add("hidden");
   document.getElementById("dashboard-view").classList.remove("hidden");
   renderDashboard();
 }
@@ -558,5 +580,19 @@ document.getElementById("mark-incomplete").addEventListener("click", function ()
 // INITIALIZE
 // =====================
 
-// Render the home screen when the page first loads
-renderHome();
+// Load all chore log entries from Firestore, then render the home screen.
+// async/await is used here because fetching from Firestore takes a moment —
+// we need to wait for the data to arrive before we can display anything.
+async function init() {
+  try {
+    const snapshot = await getDocs(collection(db, "chore-log"));
+    log = snapshot.docs.map(function (d) { return d.data(); });
+  } catch (e) {
+    console.error("Firestore load failed:", e);
+  }
+  document.getElementById("loading-view").classList.add("hidden");
+  document.getElementById("home-view").classList.remove("hidden");
+  renderHome();
+}
+
+init();
