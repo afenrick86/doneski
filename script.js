@@ -33,16 +33,18 @@ async function uploadKidPhoto(kidId, file) {
 // CONFIGURATION
 // =====================
 
-// Monthly allowance amounts by age range — loaded from Firestore, seeded on first run
-const DEFAULT_TIERS = [
-  { maxAge: 5,        amount: 5  },
-  { maxAge: 8,        amount: 10 },
-  { maxAge: 12,       amount: 20 },
-  { maxAge: Infinity, amount: 40 },
-];
+// Default goal configuration — loaded from Firestore, seeded on first run
+const DEFAULT_GOAL_CONFIG = {
+  type: "percentage",   // percentage | streak | weekly | total-count | perfect-bonus
+  timeRange: "month",   // month | week (used by percentage and weekly types)
+  target: 80,           // e.g. 80% / 7-day streak / 20 total completions
+  reward: "",           // free text: "Ice cream", "$20", "Movie night", etc.
+  bonusTarget: 100,     // perfect-bonus only
+  bonusReward: "",      // perfect-bonus only
+};
 
-let ALLOWANCE_TIERS = DEFAULT_TIERS.slice();
-let savedPayScaleTiers = DEFAULT_TIERS.slice();
+let goalConfig = Object.assign({}, DEFAULT_GOAL_CONFIG);
+let savedGoalConfig = Object.assign({}, DEFAULT_GOAL_CONFIG);
 
 // Default kids written to Firestore on first run if no kids exist yet.
 const DEFAULT_KIDS = [
@@ -675,7 +677,7 @@ function openSettings() {
   location.hash = "settings";
   showView("settings-view");
   renderSettingsList();
-  renderPayScale();
+  renderGoalSettings(false);
 }
 
 function closeSettings() {
@@ -759,6 +761,7 @@ function openKidForm(kidId) {
     document.getElementById("form-dob").value = "";
     document.getElementById("form-chore").value = "";
     document.getElementById("form-pin").value = "";
+    document.getElementById("form-reward").value = "";
     document.getElementById("form-photo").value = "";
     addFormPhotoFile = null;
     const preview = document.getElementById("form-photo-preview");
@@ -804,6 +807,10 @@ function openInlineEditForm(kidId) {
       <input type="text" id="inline-form-chore" value="${kid.chores.join(", ")}" />
     </div>
     <div class="form-field">
+      <label>Reward (optional)</label>
+      <input type="text" id="inline-form-reward" value="${kid.reward || ""}" placeholder="e.g. $20, Movie night" />
+    </div>
+    <div class="form-field">
       <label>PIN (optional)</label>
       <div class="pin-field-wrap">
         <input type="password" id="inline-form-pin" value="${kid.pin || ""}" placeholder="4-digit PIN" maxlength="4" inputmode="numeric" />
@@ -827,13 +834,15 @@ function openInlineEditForm(kidId) {
   const origDob = kid.dob;
   const origChore = kid.chores.join(", ");
   const origPin = kid.pin || "";
+  const origReward = kid.reward || "";
 
   function checkInlineDirty() {
     const name = document.getElementById("inline-form-name").value.trim();
     const dob = document.getElementById("inline-form-dob").value;
     const chore = document.getElementById("inline-form-chore").value.trim();
     const pin = document.getElementById("inline-form-pin").value.trim();
-    saveBtn.disabled = !selectedPhotoFile && (name === origName && dob === origDob && chore === origChore && pin === origPin);
+    const reward = document.getElementById("inline-form-reward").value.trim();
+    saveBtn.disabled = !selectedPhotoFile && (name === origName && dob === origDob && chore === origChore && pin === origPin && reward === origReward);
   }
 
   document.getElementById("inline-form-photo").addEventListener("change", function (e) {
@@ -849,6 +858,7 @@ function openInlineEditForm(kidId) {
   document.getElementById("inline-form-dob").addEventListener("change", checkInlineDirty);
   document.getElementById("inline-form-chore").addEventListener("input", checkInlineDirty);
   document.getElementById("inline-form-pin").addEventListener("input", checkInlineDirty);
+  document.getElementById("inline-form-reward").addEventListener("input", checkInlineDirty);
 
   saveBtn.addEventListener("click", function () { saveInlineEdit(kidId, selectedPhotoFile); });
   formEl.querySelector(".btn-inline-cancel").addEventListener("click", cancelInlineEdit);
@@ -883,12 +893,13 @@ async function saveInlineEdit(kidId, photoFile) {
   const dob = document.getElementById("inline-form-dob").value;
   const chore = document.getElementById("inline-form-chore").value.trim();
 
-  if (!name || !dob || !chore) {
-    alert("Please fill in all fields.");
+  if (!name || !chore) {
+    alert("Please fill in name and task fields.");
     return;
   }
 
   const pin = document.getElementById("inline-form-pin").value.trim() || null;
+  const reward = document.getElementById("inline-form-reward").value.trim() || null;
   const existingKid = KIDS.find(function (k) { return k.id === kidId; });
 
   let photo = existingKid.photo || null;
@@ -903,7 +914,7 @@ async function saveInlineEdit(kidId, photoFile) {
     }
   }
 
-  const kidData = Object.assign({}, existingKid, { name, dob, chores: [chore], pin, photo });
+  const kidData = Object.assign({}, existingKid, { name, dob, chores: [chore], pin, photo, reward });
 
   await setDoc(doc(db, "kids", kidId), kidData);
 
@@ -919,96 +930,98 @@ function closeKidForm() {
   document.getElementById("kid-form-section").classList.add("hidden");
 }
 
-// Deep-clones a tiers array, preserving Infinity values
-function cloneTiers(tiers) {
-  return tiers.map(function (t) { return { maxAge: t.maxAge, amount: t.amount }; });
-}
+// =====================
+// GOAL & REWARD SETTINGS
+// =====================
 
-function sortTiers(tiers) {
-  return tiers.slice().sort(function (a, b) {
-    if (a.maxAge === Infinity) return 1;
-    if (b.maxAge === Infinity) return -1;
-    return a.maxAge - b.maxAge;
-  });
-}
+const GOAL_TYPE_LABELS = {
+  "percentage":    "Percentage of days",
+  "streak":        "Consecutive days (streak)",
+  "weekly":        "Days per week",
+  "total-count":   "Total completions",
+  "perfect-bonus": "Hit target + perfect bonus",
+};
 
-// Renders the pay scale editor rows — one row per tier
-function renderPayScale(isDirty) {
-  ALLOWANCE_TIERS = sortTiers(ALLOWANCE_TIERS);
+function renderGoalSettings(isDirty) {
+  const container = document.getElementById("goal-settings-form");
+  const type = goalConfig.type;
 
-  const container = document.getElementById("pay-scale-list");
   container.innerHTML = `
-    <div class="pay-scale-header">
-      <span>Max Age</span>
-      <span>Monthly Amount ($)</span>
-      <span></span>
+    <div class="form-field">
+      <label>Goal Type</label>
+      <select id="goal-type-select">
+        ${Object.entries(GOAL_TYPE_LABELS).map(function ([val, label]) {
+          return `<option value="${val}" ${type === val ? "selected" : ""}>${label}</option>`;
+        }).join("")}
+      </select>
     </div>
+    ${type !== "streak" ? `
+    <div class="form-field" id="goal-time-range-field" ${type === "total-count" || type === "perfect-bonus" ? 'style="display:none"' : ""}>
+      <label>Time Range</label>
+      <select id="goal-time-range-select">
+        <option value="week" ${goalConfig.timeRange === "week" ? "selected" : ""}>This week</option>
+        <option value="month" ${goalConfig.timeRange === "month" ? "selected" : ""}>This month</option>
+      </select>
+    </div>` : ""}
+    <div class="form-field">
+      <label id="goal-target-label">${getTargetLabel(type)}</label>
+      <input type="number" id="goal-target-input" value="${goalConfig.target}" min="1" />
+    </div>
+    <div class="form-field">
+      <label>Reward</label>
+      <input type="text" id="goal-reward-input" value="${goalConfig.reward || ""}" placeholder="e.g. Movie night, $20, Ice cream" />
+    </div>
+    ${type === "perfect-bonus" ? `
+    <div class="form-field">
+      <label>Bonus Reward (for 100%)</label>
+      <input type="text" id="goal-bonus-reward-input" value="${goalConfig.bonusReward || ""}" placeholder="e.g. Extra screen time" />
+    </div>` : ""}
   `;
 
-  ALLOWANCE_TIERS.forEach(function (tier, index) {
-    const row = document.createElement("div");
-    row.className = "pay-scale-row";
-    const isInfinity = tier.maxAge === Infinity;
-    row.innerHTML = `
-      <input type="number" class="tier-age" data-index="${index}"
-        value="${isInfinity ? "" : tier.maxAge}"
-        placeholder="Any age" min="1" max="99" />
-      <input type="number" class="tier-amount" data-index="${index}"
-        value="${tier.amount}" min="0" step="1" />
-      <button class="btn-remove tier-remove" data-index="${index}">Remove</button>
-    `;
-    container.appendChild(row);
+  document.getElementById("goal-settings-buttons").style.display = isDirty ? "flex" : "none";
+
+  container.querySelectorAll("input, select").forEach(function (el) {
+    el.addEventListener("input", markGoalDirty);
+    el.addEventListener("change", markGoalDirty);
   });
 
-  const addBtn = document.createElement("button");
-  addBtn.className = "btn-add-tier";
-  addBtn.textContent = "+ Add Tier";
-  addBtn.addEventListener("click", addPayScaleTier);
-  container.appendChild(addBtn);
-
-  container.querySelectorAll(".tier-remove").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      if (!confirm("Remove this tier from the pay scale?")) return;
-      const i = parseInt(btn.dataset.index);
-      ALLOWANCE_TIERS.splice(i, 1);
-      renderPayScale(true);
-    });
+  document.getElementById("goal-type-select").addEventListener("change", function () {
+    goalConfig.type = this.value;
+    renderGoalSettings(true);
   });
-
-  container.querySelectorAll(".tier-age, .tier-amount").forEach(function (input) {
-    input.addEventListener("input", function () {
-      document.getElementById("pay-scale-buttons").style.display = "flex";
-    });
-  });
-
-  document.getElementById("pay-scale-buttons").style.display = isDirty ? "flex" : "none";
 }
 
-function addPayScaleTier() {
-  ALLOWANCE_TIERS.push({ maxAge: Infinity, amount: 0 });
-  renderPayScale(true);
+function getTargetLabel(type) {
+  if (type === "percentage" || type === "perfect-bonus") return "Target (% of days)";
+  if (type === "streak") return "Target (consecutive days)";
+  if (type === "weekly") return "Target (days per week)";
+  if (type === "total-count") return "Target (total completions)";
+  return "Target";
 }
 
-async function savePayScale() {
-  const ageInputs = document.querySelectorAll(".tier-age");
-  const amountInputs = document.querySelectorAll(".tier-amount");
+function markGoalDirty() {
+  document.getElementById("goal-settings-buttons").style.display = "flex";
+}
 
-  const tiers = [];
-  for (let i = 0; i < ageInputs.length; i++) {
-    const maxAge = ageInputs[i].value === "" ? Infinity : parseInt(ageInputs[i].value);
-    const amount = parseFloat(amountInputs[i].value);
-    if (isNaN(amount)) {
-      alert("Please fill in all amount fields.");
-      return;
-    }
-    tiers.push({ maxAge, amount });
+async function saveGoalSettings() {
+  const type = document.getElementById("goal-type-select").value;
+  const timeRangeEl = document.getElementById("goal-time-range-select");
+  const timeRange = timeRangeEl ? timeRangeEl.value : goalConfig.timeRange;
+  const target = parseInt(document.getElementById("goal-target-input").value);
+  const reward = document.getElementById("goal-reward-input").value.trim();
+  const bonusRewardEl = document.getElementById("goal-bonus-reward-input");
+  const bonusReward = bonusRewardEl ? bonusRewardEl.value.trim() : "";
+
+  if (isNaN(target) || target < 1) {
+    alert("Please enter a valid target.");
+    return;
   }
 
-  const sortedTiers = sortTiers(tiers);
-  await setDoc(doc(db, "settings", "pay-scale"), { tiers: sortedTiers });
-  ALLOWANCE_TIERS = sortedTiers;
-  savedPayScaleTiers = cloneTiers(sortedTiers);
-  renderPayScale(false);
+  goalConfig = { type, timeRange, target, reward, bonusTarget: 100, bonusReward };
+  await setDoc(doc(db, "settings", "goal-config"), goalConfig);
+  savedGoalConfig = Object.assign({}, goalConfig);
+  renderGoalSettings(false);
+  showToast("Goal settings saved.");
 }
 
 async function saveKid() {
@@ -1016,12 +1029,13 @@ async function saveKid() {
   const dob = document.getElementById("form-dob").value;
   const chore = document.getElementById("form-chore").value.trim();
 
-  if (!name || !dob || !chore) {
-    alert("Please fill in all fields.");
+  if (!name || !chore) {
+    alert("Please fill in name and task fields.");
     return;
   }
 
   const pin = document.getElementById("form-pin").value.trim() || null;
+  const reward = document.getElementById("form-reward").value.trim() || null;
   const id = editingKidId || String(Date.now());
 
   let photo = null;
@@ -1030,7 +1044,7 @@ async function saveKid() {
     photo = await uploadKidPhoto(id, addFormPhotoFile);
   }
 
-  const kidData = { id, name, dob, chores: [chore], photo, pin };
+  const kidData = { id, name, dob, chores: [chore], photo, pin, reward };
 
   await setDoc(doc(db, "kids", id), kidData);
 
@@ -1099,18 +1113,16 @@ document.getElementById("form-photo").addEventListener("change", function (e) {
 
 function checkAddKidForm() {
   const name = document.getElementById("form-name").value.trim();
-  const dob = document.getElementById("form-dob").value;
   const chore = document.getElementById("form-chore").value.trim();
-  document.getElementById("save-kid-btn").disabled = !(name && dob && chore);
+  document.getElementById("save-kid-btn").disabled = !(name && chore);
 }
 document.getElementById("form-name").addEventListener("input", checkAddKidForm);
-document.getElementById("form-dob").addEventListener("change", checkAddKidForm);
 document.getElementById("form-chore").addEventListener("input", checkAddKidForm);
-document.getElementById("save-pay-scale-btn").addEventListener("click", savePayScale);
-document.getElementById("cancel-pay-scale-btn").addEventListener("click", function () {
+document.getElementById("save-goal-btn").addEventListener("click", saveGoalSettings);
+document.getElementById("cancel-goal-btn").addEventListener("click", function () {
   if (!confirm("You have unsaved changes. Are you sure you want to cancel?")) return;
-  ALLOWANCE_TIERS = cloneTiers(savedPayScaleTiers);
-  renderPayScale(false);
+  goalConfig = Object.assign({}, savedGoalConfig);
+  renderGoalSettings(false);
 });
 document.getElementById("cancel-kid-btn").addEventListener("click", closeKidForm);
 document.getElementById("site-logo").addEventListener("click", goHome);
@@ -1215,15 +1227,15 @@ async function init() {
       KIDS = kidsSnapshot.docs.map(function (d) { return d.data(); });
     }
 
-    // Load pay scale — seed defaults if not yet saved
-    const payScaleDoc = await getDocs(collection(db, "settings"));
-    const payScaleData = payScaleDoc.docs.find(function (d) { return d.id === "pay-scale"; });
-    if (payScaleData) {
-      ALLOWANCE_TIERS = payScaleData.data().tiers;
+    // Load goal config — seed defaults if not yet saved
+    const settingsSnapshot = await getDocs(collection(db, "settings"));
+    const goalConfigData = settingsSnapshot.docs.find(function (d) { return d.id === "goal-config"; });
+    if (goalConfigData) {
+      goalConfig = Object.assign({}, DEFAULT_GOAL_CONFIG, goalConfigData.data());
     } else {
-      await setDoc(doc(db, "settings", "pay-scale"), { tiers: DEFAULT_TIERS });
+      await setDoc(doc(db, "settings", "goal-config"), DEFAULT_GOAL_CONFIG);
     }
-    savedPayScaleTiers = cloneTiers(ALLOWANCE_TIERS);
+    savedGoalConfig = Object.assign({}, goalConfig);
 
     // Load chore log
     const logSnapshot = await getDocs(collection(db, "chore-log"));
@@ -1252,7 +1264,7 @@ function navigateTo(hash) {
   if (hash === "#settings") {
     showView("settings-view");
     renderSettingsList();
-    renderPayScale();
+    renderGoalSettings(false);
     return;
   }
   // Default: home

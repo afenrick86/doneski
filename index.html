@@ -68,12 +68,16 @@
           <input type="text" id="form-name" placeholder="First name" />
         </div>
         <div class="form-field">
-          <label for="form-dob">Date of Birth</label>
+          <label for="form-dob">Date of Birth (optional)</label>
           <input type="date" id="form-dob" />
         </div>
         <div class="form-field">
           <label for="form-chore">Chore</label>
           <input type="text" id="form-chore" placeholder="e.g. Clean Living Room" />
+        </div>
+        <div class="form-field">
+          <label for="form-reward">Reward (optional)</label>
+          <input type="text" id="form-reward" placeholder="e.g. $20, Movie night" />
         </div>
         <div class="form-field">
           <label for="form-pin">PIN (optional)</label>
@@ -88,12 +92,12 @@
         </div>
       </section>
       <section>
-        <h2>Pay Scale</h2>
-        <p id="pay-scale-hint">Set the monthly allowance amount for each age range. At least one tier should have no Max Age to cover all ages.</p>
-        <div id="pay-scale-list"></div>
-        <div id="pay-scale-buttons">
-          <button id="save-pay-scale-btn">Save</button>
-          <button id="cancel-pay-scale-btn">Cancel</button>
+        <h2>Goal &amp; Reward</h2>
+        <p class="settings-hint">Define how kids earn their reward and what they're working toward.</p>
+        <div id="goal-settings-form"></div>
+        <div id="goal-settings-buttons">
+          <button id="save-goal-btn">Save</button>
+          <button id="cancel-goal-btn">Cancel</button>
         </div>
       </section>
 

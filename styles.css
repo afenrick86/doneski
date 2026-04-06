@@ -934,10 +934,82 @@ section h2 {
   background-color: #E5E7EB;
 }
 
-#pay-scale-hint {
+.settings-hint {
   font-size: 0.85rem;
   color: #6B7280;
   margin-bottom: 14px;
+}
+
+#goal-settings-form select {
+  padding: 9px 12px;
+  border: 1px solid #E5E7EB;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: #1C1C1E;
+  background-color: #F7F7F5;
+  width: 100%;
+}
+
+#goal-settings-form select:focus {
+  outline: none;
+  border-color: #2c62ba;
+  background-color: white;
+}
+
+#goal-settings-form input[type="number"],
+#goal-settings-form input[type="text"] {
+  padding: 9px 12px;
+  border: 1px solid #E5E7EB;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: #1C1C1E;
+  background-color: #F7F7F5;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#goal-settings-form input:focus {
+  outline: none;
+  border-color: #2c62ba;
+  background-color: white;
+}
+
+#goal-settings-buttons {
+  display: none;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+#save-goal-btn {
+  padding: 9px 20px;
+  background-color: #2c62ba;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+#save-goal-btn:hover {
+  background-color: #1e4d9a;
+}
+
+#cancel-goal-btn {
+  padding: 9px 20px;
+  background-color: #F7F7F5;
+  color: #1C1C1E;
+  border: 1px solid #E5E7EB;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+#cancel-goal-btn:hover {
+  background-color: #E5E7EB;
 }
 
 .pay-scale-row {
