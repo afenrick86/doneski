@@ -206,14 +206,20 @@ header {
 
 .card-bottom-row {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   margin-top: 6px;
+  gap: 2px;
 }
 
 .kid-on-track {
   font-size: 0.82rem;
   font-weight: bold;
   color: #2c62ba;
+}
+
+.kid-reward {
+  font-size: 0.78rem;
+  color: #555;
 }
 
 

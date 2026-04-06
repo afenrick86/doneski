@@ -6,15 +6,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyCNwan6r8B5fqxLnX5JXR1Z_Yaq158QmH4",
-  authDomain: "chore-tracker-2f79d.firebaseapp.com",
-  projectId: "chore-tracker-2f79d",
-  storageBucket: "chore-tracker-2f79d.firebasestorage.app",
-  messagingSenderId: "761245984745",
-  appId: "1:761245984745:web:5497ac442b5ee69ca9cd78"
-};
+import { firebaseConfig } from "./firebase.config.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -177,7 +169,8 @@ function renderHome() {
         <div class="progress-bar-fill" style="width: ${progress.barPercent}%"></div>
       </div>
       <div class="card-bottom-row">
-        <span class="kid-on-track">${progress.label}${reward ? " · " + reward : ""}</span>
+        <span class="kid-on-track">${progress.label} ·</span>
+        ${reward ? `<span class="kid-reward">${reward}</span>` : ""}
       </div>
     `;
 
@@ -548,7 +541,7 @@ function getGoalProgress(kidId) {
       totalDays,
       achieved,
       bonusAchieved,
-      label: `${percent}% completion ${period}`,
+      label: `${percent}% completed ${period}`,
       detail: `${completed} of ${elapsed} days so far`,
       targetLabel: `Goal: ${target}%`,
       reward: bonusAchieved ? (goalConfig.bonusReward || goalConfig.reward) : goalConfig.reward,
