@@ -95,13 +95,6 @@ function calculateAge(dob) {
   return age;
 }
 
-// Returns the max monthly allowance for a kid based on their current age tier
-function getMaxAllowance(kid) {
-  const age = calculateAge(kid.dob);
-  // Walk through the tiers and return the amount for the first tier the age fits into
-  const tier = ALLOWANCE_TIERS.find(function (t) { return age <= t.maxAge; });
-  return tier ? tier.amount : ALLOWANCE_TIERS[ALLOWANCE_TIERS.length - 1].amount;
-}
 
 // Returns how many days are in a given month
 // month is 0-indexed: 0 = January, 11 = December
@@ -154,14 +147,10 @@ function renderHome() {
   }
 
   sortedKids.forEach(function (kid) {
-    const age = calculateAge(kid.dob);
-    const maxAllowance = getMaxAllowance(kid);
-    const { percent } = getThisMonthProgress(kid.id);
+    const age = kid.dob ? calculateAge(kid.dob) : null;
+    const progress = getGoalProgress(kid.id);
+    const reward = kid.reward || goalConfig.reward || "";
 
-    const projectedEarned = ((percent / 100) * maxAllowance).toFixed(2);
-
-    // Build the photo element: real image if photo path is set, initials otherwise.
-    // The initials are the first letter of the first and last word of the name.
     const nameParts = kid.name.trim().split(" ");
     const initials = nameParts.length > 1
       ? nameParts[0][0] + nameParts[nameParts.length - 1][0]
@@ -170,10 +159,8 @@ function renderHome() {
       ? `<img class="kid-photo" src="${kid.photo}" alt="${kid.name}" />`
       : `<div class="kid-photo kid-photo-placeholder">${initials}</div>`;
 
-    // The full chore string — used in the title attribute so hovering shows the full text
-    const choreText = kid.chores.join(", ");
+    const taskText = kid.chores.join(", ");
 
-    // Create a <div> element for this kid's card
     const card = document.createElement("div");
     card.className = "kid-card";
 
@@ -181,16 +168,16 @@ function renderHome() {
       <div class="card-top-row">
         <div class="card-name-age">
           <h2>${kid.name}</h2>
-          <p class="kid-age">Age ${age}</p>
+          ${age !== null ? `<p class="kid-age">Age ${age}</p>` : ""}
         </div>
         ${photoHtml}
       </div>
-      <p class="kid-chore" title="${choreText}">${choreText}</p>
+      <p class="kid-chore" title="${taskText}">${taskText}</p>
       <div class="progress-bar-wrap">
-        <div class="progress-bar-fill" style="width: ${percent}%"></div>
+        <div class="progress-bar-fill" style="width: ${progress.barPercent}%"></div>
       </div>
       <div class="card-bottom-row">
-        <span class="kid-on-track">Earnings: $${projectedEarned} of $${maxAllowance}.00</span>
+        <span class="kid-on-track">${progress.label}${reward ? " · " + reward : ""}</span>
       </div>
     `;
 
@@ -279,27 +266,63 @@ async function openKid(kidId) {
   activeKidId = kidId;
   const kid = KIDS.find(function (k) { return k.id === kidId; });
   const age = calculateAge(kid.dob);
-  const maxAllowance = getMaxAllowance(kid);
+  const reward = kid.reward || goalConfig.reward || "";
 
   location.hash = "kid-" + kidId;
   showView("kid-view");
 
-  // Build photo element — same logic as the home card
-  const photoHtml = kid.photo
+  // Build photo element with camera edit button overlay
+  const photoInner = kid.photo
     ? `<img class="detail-photo" src="${kid.photo}" alt="${kid.name}" />`
     : `<div class="detail-photo detail-photo-placeholder">${kid.name[0]}</div>`;
+  const photoHtml = `
+    <div class="detail-photo-wrap">
+      ${photoInner}
+      <label class="detail-photo-edit-btn" for="detail-photo-input" title="Change photo">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+      </label>
+      <input type="file" id="detail-photo-input" accept="image/*" style="display:none" />
+    </div>`;
+
+  const ageLine = (kid.dob && !isNaN(age)) ? `<p>Age ${age}${reward ? " &bull; Reward: <strong>" + reward + "</strong>" : ""}</p>` : reward ? `<p>Reward: <strong>${reward}</strong></p>` : "";
 
   // Fill in the kid's header info
   document.getElementById("kid-header").innerHTML = `
     <div class="detail-header-row">
       <div class="detail-header-text">
         <h2>${kid.name}</h2>
-        <p>Age ${age} &bull; Max allowance: $${maxAllowance.toFixed(2)}/mo</p>
-        <p class="kid-chore-label">Assigned: <strong>${kid.chores.join(", ")}</strong></p>
+        ${ageLine}
+        <p class="kid-chore-label">Task: <strong>${kid.chores.join(", ")}</strong></p>
       </div>
       ${photoHtml}
     </div>
   `;
+
+  // Wire up the photo edit button
+  document.getElementById("detail-photo-input").addEventListener("change", async function (e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    // Optimistic preview — swap whatever is there (img or placeholder div) for a real img
+    const wrap = document.querySelector(".detail-photo-wrap");
+    const existing = wrap.querySelector(".detail-photo, .detail-photo-placeholder");
+    const previewImg = document.createElement("img");
+    previewImg.className = "detail-photo";
+    previewImg.src = URL.createObjectURL(file);
+    previewImg.alt = kid.name;
+    existing.replaceWith(previewImg);
+    try {
+      const url = await uploadKidPhoto(kidId, file);
+      kid.photo = url;
+      await setDoc(doc(db, "kids", kidId), { photo: url }, { merge: true });
+      showToast("Photo updated!");
+    } catch (err) {
+      console.error("Photo upload failed:", err);
+      showToast("Photo upload failed.");
+    }
+  });
 
   // If today has no entry yet, auto-log it as not completed.
   // This makes today show red by default — the kid must actively mark it done.
@@ -475,49 +498,134 @@ function selectDay(dateStr) {
 // =====================
 
 // Returns completion stats for the current month
-function getThisMonthProgress(kidId) {
+// Returns the kid's current progress toward their goal.
+// Result shape varies by goal type but always includes: percent (0-100), label, detail, achieved.
+function getGoalProgress(kidId) {
+  const type = goalConfig.type;
+  const target = goalConfig.target || 80;
+  const timeRange = goalConfig.timeRange || "month";
   const now = new Date();
-  const currentMonth = now.toISOString().slice(0, 7);
+  const today = todayString();
 
-  // How many days have passed so far this month (including today)
-  const daysSoFar = now.getDate();
+  // Helper: get entries for this kid in a date range
+  function entriesInRange(startDate, endDate) {
+    return log.filter(function (e) {
+      return e.kidId === kidId && e.date >= startDate && e.date <= endDate;
+    });
+  }
 
-  // Count how many of those days were marked completed
-  const completed = log.filter(function (e) {
-    return e.kidId === kidId && e.date.startsWith(currentMonth) && e.completed;
-  }).length;
+  function completedInRange(startDate, endDate) {
+    return entriesInRange(startDate, endDate).filter(function (e) { return e.completed; }).length;
+  }
 
-  // Percentage of days completed out of days elapsed
-  const percent = daysSoFar > 0
-    ? Math.round((completed / daysSoFar) * 100)
-    : 0;
+  if (type === "percentage" || type === "perfect-bonus") {
+    let startDate, totalDays, elapsed;
+    if (timeRange === "week") {
+      const dayOfWeek = now.getDay(); // 0=Sun
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - dayOfWeek);
+      startDate = weekStart.toISOString().split("T")[0];
+      totalDays = 7;
+      elapsed = Math.min(dayOfWeek + 1, 7);
+    } else {
+      startDate = now.toISOString().slice(0, 7) + "-01";
+      totalDays = getDaysInMonth(now.getFullYear(), now.getMonth());
+      elapsed = now.getDate();
+    }
+    const completed = completedInRange(startDate, today);
+    const percent = elapsed > 0 ? Math.round((completed / elapsed) * 100) : 0;
+    const overallPercent = Math.round((completed / totalDays) * 100);
+    const achieved = percent >= target;
+    const bonusAchieved = type === "perfect-bonus" && percent === 100;
+    const period = timeRange === "week" ? "this week" : "this month";
+    return {
+      percent,
+      barPercent: percent,
+      completed,
+      elapsed,
+      totalDays,
+      achieved,
+      bonusAchieved,
+      label: `${percent}% completion ${period}`,
+      detail: `${completed} of ${elapsed} days so far`,
+      targetLabel: `Goal: ${target}%`,
+      reward: bonusAchieved ? (goalConfig.bonusReward || goalConfig.reward) : goalConfig.reward,
+      overallPercent,
+    };
+  }
 
-  return { completed, daysSoFar, percent };
-}
+  if (type === "streak") {
+    // Count current consecutive completed days ending today or yesterday
+    let streak = 0;
+    const check = new Date(now);
+    while (true) {
+      const dateStr = check.toISOString().split("T")[0];
+      const entry = log.find(function (e) { return e.kidId === kidId && e.date === dateStr; });
+      if (entry && entry.completed) {
+        streak++;
+        check.setDate(check.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+    // Also find best streak ever
+    const kidEntries = log
+      .filter(function (e) { return e.kidId === kidId; })
+      .sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    let best = 0, current = 0;
+    kidEntries.forEach(function (e) {
+      if (e.completed) { current++; best = Math.max(best, current); }
+      else { current = 0; }
+    });
+    const percent = Math.min(Math.round((streak / target) * 100), 100);
+    return {
+      percent,
+      barPercent: percent,
+      completed: streak,
+      achieved: streak >= target,
+      label: `${streak} day streak`,
+      detail: `Best ever: ${best} days`,
+      targetLabel: `Goal: ${target} consecutive days`,
+      reward: goalConfig.reward,
+    };
+  }
 
-// Returns the allowance earned for the previous month based on completion
-function getPreviousMonthAllowance(kidId) {
-  const now = new Date();
+  if (type === "weekly") {
+    const dayOfWeek = now.getDay();
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - dayOfWeek);
+    const startDate = weekStart.toISOString().split("T")[0];
+    const completed = completedInRange(startDate, today);
+    const percent = Math.min(Math.round((completed / target) * 100), 100);
+    return {
+      percent,
+      barPercent: percent,
+      completed,
+      achieved: completed >= target,
+      label: `${completed} of ${target} days this week`,
+      detail: `Week resets every Sunday`,
+      targetLabel: `Goal: ${target} days/week`,
+      reward: goalConfig.reward,
+    };
+  }
 
-  // Figure out the previous month's year and month number
-  const prevYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-  const prevMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+  if (type === "total-count") {
+    const completed = log.filter(function (e) { return e.kidId === kidId && e.completed; }).length;
+    const percent = Math.min(Math.round((completed / target) * 100), 100);
+    return {
+      percent,
+      barPercent: percent,
+      completed,
+      achieved: completed >= target,
+      label: `${completed} of ${target} total completions`,
+      detail: completed >= target ? "Goal reached!" : `${target - completed} to go`,
+      targetLabel: `Goal: ${target} completions`,
+      reward: goalConfig.reward,
+    };
+  }
 
-  // Build the "YYYY-MM" prefix for the previous month
-  const prevMonthStr = `${prevYear}-${String(prevMonth + 1).padStart(2, "0")}`;
-
-  const totalDays = getDaysInMonth(prevYear, prevMonth);
-
-  const completed = log.filter(function (e) {
-    return e.kidId === kidId && e.date.startsWith(prevMonthStr) && e.completed;
-  }).length;
-
-  const percent = totalDays > 0 ? Math.round((completed / totalDays) * 100) : 0;
-
-  const kid = KIDS.find(function (k) { return k.id === kidId; });
-  const earned = ((percent / 100) * getMaxAllowance(kid)).toFixed(2);
-
-  return { percent, earned, totalDays, completed };
+  // Fallback
+  return { percent: 0, barPercent: 0, completed: 0, achieved: false, label: "", detail: "", targetLabel: "", reward: "" };
 }
 
 
@@ -525,89 +633,55 @@ function getPreviousMonthAllowance(kidId) {
 // PARENT DASHBOARD
 // =====================
 
-// Calculates total earnings across all logged months for a kid
-function getLifetimeEarnings(kidId) {
-  const kid = KIDS.find(function (k) { return k.id === kidId; });
-
-  // Collect all unique "YYYY-MM" months that exist in the log for this kid
-  const months = [];
-  log.forEach(function (e) {
-    if (e.kidId === kidId && months.indexOf(e.date.slice(0, 7)) === -1) {
-      months.push(e.date.slice(0, 7));
-    }
-  });
-
-  const currentMonth = new Date().toISOString().slice(0, 7);
-  let total = 0;
-
-  months.forEach(function (monthStr) {
-    const parts = monthStr.split("-");
-    const year = parseInt(parts[0]);
-    const month = parseInt(parts[1]) - 1; // 0-indexed for getDaysInMonth
-    const totalDays = getDaysInMonth(year, month);
-    // For the current month use days elapsed; for past months use all days
-    const daysToCount = monthStr === currentMonth ? new Date().getDate() : totalDays;
-    const completed = log.filter(function (e) {
-      return e.kidId === kidId && e.date.startsWith(monthStr) && e.completed;
-    }).length;
-    const percent = daysToCount > 0 ? completed / daysToCount : 0;
-    total += percent * getMaxAllowance(kid);
-  });
-
-  return total.toFixed(2);
-}
-
 function renderDashboard() {
-  // Aggregate group stats across all kids
-  let totalProjected = 0;
-  let totalLastMonth = 0;
-  let totalCompletionPercent = 0;
-
   const activeKids = KIDS.filter(function (k) { return !k.archived; });
 
+  let totalPercent = 0;
+  let goalsAchieved = 0;
   activeKids.forEach(function (kid) {
-    const { percent } = getThisMonthProgress(kid.id);
-    const maxAllowance = getMaxAllowance(kid);
-    totalProjected += (percent / 100) * maxAllowance;
-    totalCompletionPercent += percent;
-    const prev = getPreviousMonthAllowance(kid.id);
-    totalLastMonth += parseFloat(prev.earned);
+    const progress = getGoalProgress(kid.id);
+    totalPercent += progress.percent;
+    if (progress.achieved) goalsAchieved++;
   });
 
-  const groupRate = activeKids.length > 0 ? Math.round(totalCompletionPercent / activeKids.length) : 0;
+  const groupRate = activeKids.length > 0 ? Math.round(totalPercent / activeKids.length) : 0;
 
   document.getElementById("dashboard-widgets").innerHTML = `
     <div class="stat-card">
       <div class="stat-value">${groupRate}%</div>
-      <div class="stat-label">Group Completion This Month</div>
+      <div class="stat-label">Group Progress</div>
     </div>
     <div class="stat-card">
-      <div class="stat-value">$${totalProjected.toFixed(2)}</div>
-      <div class="stat-label">Projected Payout This Month</div>
+      <div class="stat-value">${goalsAchieved} / ${activeKids.length}</div>
+      <div class="stat-label">Goals Achieved</div>
     </div>
     <div class="stat-card">
-      <div class="stat-value">$${totalLastMonth.toFixed(2)}</div>
-      <div class="stat-label">Total Paid Last Month</div>
+      <div class="stat-value">${goalConfig.reward || "—"}</div>
+      <div class="stat-label">Current Reward</div>
     </div>
   `;
 
-  // Per-kid earnings table
+  const sortedKids = activeKids.slice().sort(function (a, b) {
+    if (!a.dob) return 1;
+    if (!b.dob) return -1;
+    return a.dob < b.dob ? -1 : 1;
+  });
+
   let rows = "";
-  const sortedKids = activeKids.slice().sort(function (a, b) { return a.dob < b.dob ? -1 : 1; });
   sortedKids.forEach(function (kid) {
-    const { percent } = getThisMonthProgress(kid.id);
-    const maxAllowance = getMaxAllowance(kid);
-    const projected = ((percent / 100) * maxAllowance).toFixed(2);
-    const prev = getPreviousMonthAllowance(kid.id);
-    const lifetime = getLifetimeEarnings(kid.id);
+    const progress = getGoalProgress(kid.id);
+    const age = kid.dob ? calculateAge(kid.dob) : null;
+    const ageStr = age !== null ? ` (${age})` : "";
+    const reward = kid.reward || goalConfig.reward || "—";
+    const achievedStr = progress.achieved ? "✓" : "";
 
     rows += `
       <tr>
-        <td><strong>${kid.name}</strong> (${calculateAge(kid.dob)})</td>
-        <td>${percent}%</td>
-        <td>$${projected}</td>
-        <td>$${prev.earned}</td>
-        <td>$${lifetime}</td>
+        <td><strong>${kid.name}</strong>${ageStr}</td>
+        <td>${progress.label}</td>
+        <td>${progress.barPercent}%</td>
+        <td>${reward}</td>
+        <td>${achievedStr}</td>
       </tr>
     `;
   });
@@ -616,11 +690,11 @@ function renderDashboard() {
     <table class="dashboard-table">
       <thead>
         <tr>
-          <th>Kid</th>
-          <th>This Month</th>
-          <th>Projected</th>
-          <th>Last Month</th>
-          <th>Lifetime</th>
+          <th>Name</th>
+          <th>Progress</th>
+          <th>%</th>
+          <th>Reward</th>
+          <th>Achieved</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
@@ -642,24 +716,27 @@ function openDashboard() {
 
 function renderKidProgress(kidId) {
   const kid = KIDS.find(function (k) { return k.id === kidId; });
-  const { completed, daysSoFar, percent } = getThisMonthProgress(kidId);
-  const prev = getPreviousMonthAllowance(kidId);
-  const maxAllowance = getMaxAllowance(kid);
-  const projectedEarned = ((percent / 100) * maxAllowance).toFixed(2);
+  const progress = getGoalProgress(kidId);
+  const reward = kid.reward || goalConfig.reward || "";
+
+  const achievedHtml = progress.achieved
+    ? `<p class="goal-achieved">🎉 Goal reached! ${reward ? "Reward: <strong>" + reward + "</strong>" : ""}</p>`
+    : reward ? `<p class="goal-reward-hint">Reward: <strong>${reward}</strong></p>` : "";
+
+  const bonusHtml = progress.bonusAchieved && goalConfig.bonusReward
+    ? `<p class="goal-achieved">⭐ Bonus unlocked: <strong>${goalConfig.bonusReward}</strong></p>`
+    : "";
 
   document.getElementById("progress-details").innerHTML = `
     <div class="progress-block">
-      <h3>This Month</h3>
-      <p>Days completed: <strong>${completed}</strong> of ${daysSoFar} days so far</p>
+      <p class="goal-target-label">${progress.targetLabel}</p>
+      <p><strong>${progress.label}</strong></p>
       <div class="progress-bar-wrap">
-        <div class="progress-bar-fill" style="width: ${percent}%"></div>
+        <div class="progress-bar-fill" style="width: ${progress.barPercent}%"></div>
       </div>
-      <p>Earnings: <strong>$${projectedEarned}</strong> of $${maxAllowance.toFixed(2)}</p>
-    </div>
-    <div class="progress-block">
-      <h3>Last Month's Payout</h3>
-      <p>Completion: <strong>${prev.percent}%</strong> (${prev.completed} of ${prev.totalDays} days)</p>
-      <p>Allowance earned: <strong>$${prev.earned}</strong></p>
+      <p class="goal-detail">${progress.detail}</p>
+      ${achievedHtml}
+      ${bonusHtml}
     </div>
   `;
 }
