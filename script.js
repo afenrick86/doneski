@@ -287,7 +287,9 @@ async function openKid(kidId) {
       <input type="file" id="detail-photo-input" accept="image/*" style="display:none" />
     </div>`;
 
-  const ageLine = (kid.dob && !isNaN(age)) ? `<p>Age ${age}${reward ? " &bull; Reward: <strong>" + reward + "</strong>" : ""}</p>` : reward ? `<p>Reward: <strong>${reward}</strong></p>` : "";
+  const taskText = kid.chores.join(", ");
+  const ageLine = (kid.dob && !isNaN(age)) ? `<p>Age ${age} &bull; ${taskText}</p>` : `<p>${taskText}</p>`;
+  const rewardLine = reward ? `<p class="kid-chore-label">Reward: <strong>${reward}</strong></p>` : "";
 
   // Fill in the kid's header info
   document.getElementById("kid-header").innerHTML = `
@@ -295,7 +297,7 @@ async function openKid(kidId) {
       <div class="detail-header-text">
         <h2>${kid.name}</h2>
         ${ageLine}
-        <p class="kid-chore-label">Task: <strong>${kid.chores.join(", ")}</strong></p>
+        ${rewardLine}
       </div>
       ${photoHtml}
     </div>
