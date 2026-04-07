@@ -768,7 +768,7 @@ function renderSettingsList() {
   const archivedKids = KIDS.filter(function (k) { return k.archived; }).sort(function (a, b) { return a.dob < b.dob ? -1 : 1; });
 
   let html = activeKids.map(function (kid) {
-    const age = calculateAge(kid.dob);
+    const age = kid.dob ? calculateAge(kid.dob) : null;
     const hasHistory = log.some(function (e) { return e.kidId === kid.id; });
     const actionBtn = hasHistory
       ? `<button class="btn-archive" data-id="${kid.id}">Archive</button>`
@@ -777,7 +777,7 @@ function renderSettingsList() {
       <div class="settings-kid-row">
         <div class="settings-kid-info">
           <strong>${kid.name}</strong>
-          <span>Age ${age} &bull; ${kid.chores.join(", ")}</span>
+          <span>${age !== null ? `Age ${age} &bull; ` : ""}${kid.chores.join(", ")}</span>
         </div>
         <div class="settings-kid-actions">
           <button class="btn-edit" data-id="${kid.id}">Edit</button>
@@ -790,12 +790,12 @@ function renderSettingsList() {
   if (archivedKids.length > 0) {
     html += `<p class="archived-section-label">Archived</p>`;
     html += archivedKids.map(function (kid) {
-      const age = calculateAge(kid.dob);
+      const age = kid.dob ? calculateAge(kid.dob) : null;
       return `
         <div class="settings-kid-row archived">
           <div class="settings-kid-info">
             <strong>${kid.name}</strong>
-            <span>Age ${age} &bull; ${kid.chores.join(", ")}</span>
+            <span>${age !== null ? `Age ${age} &bull; ` : ""}${kid.chores.join(", ")}</span>
           </div>
           <div class="settings-kid-actions">
             <button class="btn-unarchive" data-id="${kid.id}">Unarchive</button>
@@ -871,8 +871,8 @@ function openInlineEditForm(kidId) {
       <input type="text" id="inline-form-name" value="${kid.name}" />
     </div>
     <div class="form-field">
-      <label>Date of Birth</label>
-      <input type="date" id="inline-form-dob" value="${kid.dob}" />
+      <label>Date of Birth (optional)</label>
+      <input type="date" id="inline-form-dob" value="${kid.dob || ""}" />
     </div>
     <div class="form-field">
       <label>Task</label>
