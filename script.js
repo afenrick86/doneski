@@ -378,9 +378,7 @@ async function logEntry(kidId, date, completed) {
   // Save the updated entry to Firestore.
   // Each document is keyed by "kidId_date" so it's easy to find and overwrite.
   const entryKey = `${kidId}_${date}`;
-  await setDoc(doc(db, "chore-log", entryKey), { kidId, date, 
-    
-   });
+  await setDoc(doc(db, "chore-log", entryKey), { kidId, date, completed });
 
   // Refresh the log list and progress stats
   renderMonthLog(kidId);
